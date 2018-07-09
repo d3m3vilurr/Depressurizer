@@ -107,25 +107,6 @@ namespace Depressurizer
 					throw new ArgumentOutOfRangeException();
 			}
 
-			switch (Settings.ListSource)
-			{
-				case GameListSource.XmlPreferred:
-					cmbDatSrc.SelectedIndex = 0;
-
-					break;
-				case GameListSource.XmlOnly:
-					cmbDatSrc.SelectedIndex = 1;
-
-					break;
-				case GameListSource.WebsiteOnly:
-					cmbDatSrc.SelectedIndex = 2;
-
-					break;
-				default:
-
-					throw new ArgumentOutOfRangeException();
-			}
-
 			chkUpdateAppInfoOnStartup.Checked = Settings.UpdateAppInfoOnStart;
 			chkUpdateHltbOnStartup.Checked = Settings.UpdateHltbOnStart;
 			chkIncludeImputedTimes.Checked = Settings.IncludeImputedTimes;
@@ -174,22 +155,6 @@ namespace Depressurizer
 			if (radCreate.Checked)
 			{
 				Settings.StartupAction = StartupAction.Create;
-			}
-
-			switch (cmbDatSrc.SelectedIndex)
-			{
-				case 0:
-					Settings.ListSource = GameListSource.XmlPreferred;
-
-					break;
-				case 1:
-					Settings.ListSource = GameListSource.XmlOnly;
-
-					break;
-				case 2:
-					Settings.ListSource = GameListSource.WebsiteOnly;
-
-					break;
 			}
 
 			Settings.ProfileToLoad = txtDefaultProfile.Text;

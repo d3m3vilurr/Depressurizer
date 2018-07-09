@@ -63,8 +63,6 @@ namespace Depressurizer.Core
 
 		private InterfaceLanguage _interfaceLanguage = InterfaceLanguage.English;
 
-		private GameListSource _listSource = GameListSource.XmlPreferred;
-
 		private string _lstGamesState = "";
 
 		private string _profileToLoad;
@@ -241,26 +239,6 @@ namespace Depressurizer.Core
 				{
 					_interfaceLanguage = value;
 					ChangeLanguage(_interfaceLanguage);
-				}
-			}
-		}
-
-		public GameListSource ListSource
-		{
-			get
-			{
-				lock (SyncRoot)
-				{
-					return _listSource;
-				}
-			}
-
-			set
-
-			{
-				lock (SyncRoot)
-				{
-					_listSource = value;
 				}
 			}
 		}

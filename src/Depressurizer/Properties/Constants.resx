@@ -147,14 +147,8 @@
   <data name="ShortCutsFilePath" xml:space="preserve">
     <value>{0}\userdata\{1}\config\shortcuts.vdf</value>
   </data>
-  <data name="SteamCustomProfileGameList" xml:space="preserve">
-    <value>http://steamcommunity.com/id/{0}/games?tab=all</value>
-  </data>
   <data name="SteamCustomProfileGameListXML" xml:space="preserve">
     <value>http://steamcommunity.com/id/{0}/games?tab=all&amp;xml=1</value>
-  </data>
-  <data name="SteamProfileGameList" xml:space="preserve">
-    <value>http://steamcommunity.com/profiles/{0}/games?tab=all</value>
   </data>
   <data name="SteamProfileGameListXML" xml:space="preserve">
     <value>http://steamcommunity.com/profiles/{0}/games?tab=all&amp;xml=1</value>

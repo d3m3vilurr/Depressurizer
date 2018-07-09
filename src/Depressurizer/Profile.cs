@@ -542,9 +542,9 @@ namespace Depressurizer
 					foreach (Category c in g.Categories)
 					{
 						string catName = c.Name;
-						if (c.Name == GameList.FAVORITE_NEW_CONFIG_VALUE)
+						if (c.Name == GameList.FavoriteNewConfigValue)
 						{
-							catName = GameList.FAVORITE_CONFIG_VALUE;
+							catName = GameList.FavoriteConfigValue;
 						}
 
 						writer.WriteElementString(XmlName_Game_Category, catName);

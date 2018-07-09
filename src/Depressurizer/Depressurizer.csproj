@@ -287,7 +287,6 @@
     <Compile Include="Models\VDFNode.cs" />
     <Compile Include="Models\PackageInfo.cs" />
     <Compile Include="MyRenderer.cs" />
-    <Compile Include="ProfileAccessException.cs" />
     <Compile Include="Properties\Constants.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

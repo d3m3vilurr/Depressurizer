@@ -56,7 +56,6 @@
     <Compile Include="Enums\AppPlatforms.cs" />
     <Compile Include="Enums\AppType.cs" />
     <Compile Include="Enums\GameListingSource.cs" />
-    <Compile Include="Enums\GameListSource.cs" />
     <Compile Include="Enums\InterfaceLanguage.cs" />
     <Compile Include="Enums\StartupAction.cs" />
     <Compile Include="Enums\StoreLanguage.cs" />

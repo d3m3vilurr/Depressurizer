@@ -37,32 +37,19 @@ using ValueType = Depressurizer.Core.Enums.ValueType;
 
 namespace Depressurizer
 {
-	/// <summary>
-	///     Represents a complete collection of games and categories.
-	/// </summary>
 	public class GameList
 	{
 		#region Constants
 
-		public const string FAVORITE_CONFIG_VALUE = "favorite";
+		public const string FavoriteConfigValue = "favorite";
 
-		public const string FAVORITE_NEW_CONFIG_VALUE = "<Favorite>";
+		public const string FavoriteNewConfigValue = "<Favorite>";
 
 		#endregion
 
 		#region Static Fields
 
-		private static readonly Regex rxUnicode = new Regex(@"\\u(?<Value>[a-zA-Z0-9]{4})", RegexOptions.Compiled);
-
-		#endregion
-
-		#region Fields
-
-		public List<Category> Categories;
-
-		public List<Filter> Filters;
-
-		public Dictionary<int, GameInfo> Games;
+		private static readonly Regex RegexUnicode = new Regex(@"\\u(?<Value>[a-zA-Z0-9]{4})", RegexOptions.Compiled);
 
 		#endregion
 
@@ -70,10 +57,6 @@ namespace Depressurizer
 
 		public GameList()
 		{
-			Games = new Dictionary<int, GameInfo>();
-			Categories = new List<Category>();
-			Filters = new List<Filter>();
-			FavoriteCategory = new Category(FAVORITE_NEW_CONFIG_VALUE);
 			Categories.Add(FavoriteCategory);
 		}
 
@@ -81,7 +64,13 @@ namespace Depressurizer
 
 		#region Public Properties
 
-		public Category FavoriteCategory { get; }
+		public List<Category> Categories { get; } = new List<Category>();
+
+		public Category FavoriteCategory { get; } = new Category(FavoriteNewConfigValue);
+
+		public List<Filter> Filters { get; } = new List<Filter>();
+
+		public Dictionary<int, GameInfo> Games { get; } = new Dictionary<int, GameInfo>();
 
 		#endregion
 
@@ -95,128 +84,47 @@ namespace Depressurizer
 
 		#region Public Methods and Operators
 
-		/// <summary>
-		///     Fetches an HTML game list and returns the full page text.
-		///     Mostly just grabs the given HTTP response, except that it throws an errors if the profile is not public, and writes
-		///     approrpriate log entries.
-		/// </summary>
-		/// <param name="url">The URL to fetch</param>
-		/// <returns>The full text of the HTML page</returns>
-		public static string FetchHtmlFromUrl(string url)
-		{
-			try
-			{
-				string result = "";
-
-				Logger.Info(GlobalStrings.GameData_AttemptingDownloadHTMLGameList, url);
-				WebRequest req = WebRequest.Create(url);
-				using (WebResponse response = req.GetResponse())
-				{
-					if (response.ResponseUri.Segments.Length < 4)
-					{
-						throw new ProfileAccessException(GlobalStrings.GameData_SpecifiedProfileNotPublic);
-					}
-
-					StreamReader sr = new StreamReader(response.GetResponseStream());
-					result = sr.ReadToEnd();
-				}
-
-				Logger.Info(GlobalStrings.GameData_SuccessDownloadHTMLGameList, url);
-
-				return result;
-			}
-			catch (ProfileAccessException e)
-			{
-				Logger.Error(GlobalStrings.GameData_ProfileNotPublic);
-
-				throw e;
-			}
-			catch (Exception e)
-			{
-				Logger.Error(GlobalStrings.GameData_ExceptionDownloadHTMLGameList, e.Message);
-
-				throw new ApplicationException(e.Message, e);
-			}
-		}
-
-		/// <summary>
-		///     Grabs the HTML game list for the given account and returns its full text.
-		/// </summary>
-		/// <param name="customUrl">The custom name for the account</param>
-		/// <returns>Full text of the HTTP response</returns>
-		public static string FetchHtmlGameList(string customUrl)
-		{
-			return FetchHtmlFromUrl(string.Format(Constants.SteamCustomProfileGameList, customUrl));
-		}
-
-		/// <summary>
-		///     Grabs the HTML game list for the given account and returns its full text.
-		/// </summary>
-		/// <param name="accountId">The 64-bit account ID</param>
-		/// <returns>Full text of the HTTP response</returns>
-		public static string FetchHtmlGameList(long accountId)
-		{
-			return FetchHtmlFromUrl(string.Format(Constants.SteamProfileGameList, accountId));
-		}
-
-		/// <summary>
-		///     Fetches an XML game list and loads it into an XML document.
-		/// </summary>
-		/// <param name="url">The URL to fetch</param>
-		/// <returns>Fetched XML page as an XmlDocument</returns>
 		public static XmlDocument FetchXmlFromUrl(string url)
 		{
-			XmlDocument doc = new XmlDocument();
+			Logger.Info("GameList: Starting download XML game list from URL '{0}'.", url);
+			XmlDocument document = new XmlDocument();
+
 			try
 			{
-				Logger.Info(GlobalStrings.GameData_AttemptingDownloadXMLGameList, url);
-				WebRequest req = WebRequest.Create(url);
-				WebResponse response = req.GetResponse();
-				if (response.ResponseUri.Segments.Length < 4)
+				using (WebClient client = new WebClient())
 				{
-					throw new ProfileAccessException(GlobalStrings.GameData_SpecifiedProfileNotPublic);
+					client.Headers.Set("User-Agent", "Depressurizer");
+
+					string xml = client.DownloadString(url);
+					if (xml.Contains("This profile is private."))
+					{
+						throw new InvalidDataException("The specified profile is not public, please check your privacy settings.");
+					}
+
+					if (!xml.Contains("<games>") || !xml.Contains("</games>"))
+					{
+						throw new InvalidDataException("The specified profile does not have a public game list, please check your privacy settings.");
+					}
+
+					document.Load(xml);
 				}
-
-				doc.Load(response.GetResponseStream());
-				response.Close();
-				if (doc.InnerText.Contains("This profile is private."))
-				{
-					throw new ProfileAccessException(GlobalStrings.GameData_SpecifiedProfileNotPublic);
-				}
-
-				Logger.Info(GlobalStrings.GameData_SuccessDownloadXMLGameList, url);
-
-				return doc;
-			}
-			catch (ProfileAccessException e)
-			{
-				Logger.Error(GlobalStrings.GameData_ProfileNotPublic);
-
-				throw e;
 			}
 			catch (Exception e)
 			{
-				Logger.Error(GlobalStrings.GameData_ExceptionDownloadXMLGameList, e.Message);
+				Logger.Error("GameList: Exception while downloading XML game list: {0}", e.Message);
 
 				throw new ApplicationException(e.Message, e);
 			}
+
+			Logger.Info("GameList: Downloaded XML game list from URL '{0}'.", url);
+			return document;
 		}
 
-		/// <summary>
-		///     Grabs the XML game list for the given account and reads it into an XmlDocument.
-		/// </summary>
-		/// <param name="customUrl">The custom name for the account</param>
-		/// <returns>Fetched XML page as an XmlDocument</returns>
 		public static XmlDocument FetchXmlGameList(string customUrl)
 		{
 			return FetchXmlFromUrl(string.Format(Constants.SteamCustomProfileGameListXML, customUrl));
 		}
 
-		/// <summary>
-		///     Grabs the XML game list for the given account and reads it into an XmlDocument.
-		/// </summary>
-		/// <param name="accountId">The 64-bit account ID</param>
-		/// <returns>Fetched XML page as an XmlDocument</returns>
 		public static XmlDocument FetchXmlGameList(long steamId)
 		{
 			return FetchXmlFromUrl(string.Format(Constants.SteamProfileGameListXML, steamId));
@@ -283,30 +191,6 @@ namespace Depressurizer
 		}
 
 		/// <summary>
-		///     Adds a set of categories to a single game
-		/// </summary>
-		/// <param name="gameID">Game ID to add to</param>
-		/// <param name="cats">Categories to add</param>
-		public void AddGameCategory(int gameID, ICollection<Category> cats)
-		{
-			GameInfo g = Games[gameID];
-			g.AddCategory(cats);
-		}
-
-		/// <summary>
-		///     Adds a set of game categories to each member of a list of games
-		/// </summary>
-		/// <param name="gameIDs">List of game IDs to add to</param>
-		/// <param name="cats">Categories to add</param>
-		public void AddGameCategory(int[] gameIDs, ICollection<Category> cats)
-		{
-			for (int i = 0; i < gameIDs.Length; i++)
-			{
-				AddGameCategory(gameIDs[i], cats);
-			}
-		}
-
-		/// <summary>
 		///     Checks to see if a category with the given name exists
 		/// </summary>
 		/// <param name="name">Name of the category to look for</param>
@@ -314,7 +198,7 @@ namespace Depressurizer
 		public bool CategoryExists(string name)
 		{
 			// Favorite category always exists
-			if ((name == FAVORITE_NEW_CONFIG_VALUE) || (name == FAVORITE_CONFIG_VALUE))
+			if ((name == FavoriteNewConfigValue) || (name == FavoriteConfigValue))
 			{
 				return true;
 			}
@@ -445,9 +329,9 @@ namespace Depressurizer
 					foreach (Category c in game.Categories)
 					{
 						string name = c.Name;
-						if (name == FAVORITE_NEW_CONFIG_VALUE)
+						if (name == FavoriteNewConfigValue)
 						{
-							name = FAVORITE_CONFIG_VALUE;
+							name = FavoriteConfigValue;
 						}
 
 						tagsNode[key.ToString()] = new VDFNode(name);
@@ -597,9 +481,9 @@ namespace Depressurizer
 						foreach (Category c in game.Categories)
 						{
 							string name = c.Name;
-							if (name == FAVORITE_NEW_CONFIG_VALUE)
+							if (name == FavoriteNewConfigValue)
 							{
-								name = FAVORITE_CONFIG_VALUE;
+								name = FavoriteConfigValue;
 							}
 
 							tagsNode[index.ToString()] = new VDFNode(name);
@@ -688,7 +572,7 @@ namespace Depressurizer
 			}
 
 			// Check for Favorite category
-			if ((name == FAVORITE_NEW_CONFIG_VALUE) || (name == FAVORITE_CONFIG_VALUE))
+			if ((name == FavoriteNewConfigValue) || (name == FavoriteConfigValue))
 			{
 				return FavoriteCategory;
 			}
@@ -1023,7 +907,7 @@ namespace Depressurizer
 		/// <returns>The processed string</returns>
 		public string ProcessUnicode(string val)
 		{
-			return rxUnicode.Replace(val, m => ((char) int.Parse(m.Groups["Value"].Value, NumberStyles.HexNumber)).ToString());
+			return RegexUnicode.Replace(val, m => ((char) int.Parse(m.Groups["Value"].Value, NumberStyles.HexNumber)).ToString());
 		}
 
 		/// <summary>
@@ -1610,41 +1494,6 @@ namespace Depressurizer
 			}
 
 			return result;
-		}
-
-		/// <summary>
-		///     Removes a game from the game list.
-		/// </summary>
-		/// <param name="appId">Id of game to remove.</param>
-		/// <returns>True if game was removed, false otherwise</returns>
-		private bool RemoveGame(int appId)
-		{
-			bool removed = false;
-			if (appId < 0)
-			{
-				if (Games.ContainsKey(appId))
-				{
-					GameInfo removedGame = Games[appId];
-					removedGame.ClearCategories(true);
-					removed = Games.Remove(appId);
-					if (removed)
-					{
-						Logger.Verbose(GlobalStrings.GameData_RemovedGameFromGameList, appId, removedGame.Name);
-					}
-					else
-					{
-						Logger.Error(GlobalStrings.GameData_ErrorRemovingGame, appId, removedGame.Name);
-					}
-
-					return removed;
-				}
-			}
-			else
-			{
-				Logger.Error(GlobalStrings.GameData_ErrorRemovingSteamGame, appId);
-			}
-
-			return removed;
 		}
 
 		#endregion

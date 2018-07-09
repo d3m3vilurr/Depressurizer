@@ -350,9 +350,6 @@ Tiempo Restante:</value>
   <data name="GameData_AddingGameToConfigFile" xml:space="preserve">
     <value>Añadido juego {0} al fichero de configuración.</value>
   </data>
-  <data name="GameData_AttemptingDownloadHTMLGameList" xml:space="preserve">
-    <value>Intentando descargar lista de juegos HTML desde URL {0}</value>
-  </data>
   <data name="GameData_AttemptingDownloadXMLGameList" xml:space="preserve">
     <value>Intentando descarga lista de juegos XML desde URL {0}</value>
   </data>
