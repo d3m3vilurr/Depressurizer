@@ -22,7 +22,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -84,42 +83,6 @@ namespace Depressurizer
 
 		#region Public Methods and Operators
 
-		public static XmlDocument FetchXmlFromUrl(string url)
-		{
-			Logger.Info("GameList: Starting download XML game list from URL '{0}'.", url);
-			XmlDocument document = new XmlDocument();
-
-			try
-			{
-				using (WebClient client = new WebClient())
-				{
-					client.Headers.Set("User-Agent", "Depressurizer");
-
-					string xml = client.DownloadString(url);
-					if (xml.Contains("This profile is private."))
-					{
-						throw new InvalidDataException("The specified profile is not public, please check your privacy settings.");
-					}
-
-					if (!xml.Contains("<games>") || !xml.Contains("</games>"))
-					{
-						throw new InvalidDataException("The specified profile does not have a public game list, please check your privacy settings.");
-					}
-
-					document.Load(xml);
-				}
-			}
-			catch (Exception e)
-			{
-				Logger.Error("GameList: Exception while downloading XML game list: {0}", e.Message);
-
-				throw new ApplicationException(e.Message, e);
-			}
-
-			Logger.Info("GameList: Downloaded XML game list from URL '{0}'.", url);
-			return document;
-		}
-
 		public static XmlDocument FetchXmlGameList(string customUrl)
 		{
 			return FetchXmlFromUrl(string.Format(Constants.SteamCustomProfileGameListXML, customUrl));
@@ -166,27 +129,17 @@ namespace Depressurizer
 			return newFilter;
 		}
 
-		/// <summary>
-		///     Adds a single category to a single game
-		/// </summary>
-		/// <param name="gameID">Game ID to add category to</param>
-		/// <param name="c">Category to add</param>
-		public void AddGameCategory(int gameID, Category c)
+		public void AddGameCategory(int appId, Category category)
 		{
-			GameInfo g = Games[gameID];
-			g.AddCategory(c);
+			GameInfo gameInfo = Games[appId];
+			gameInfo.AddCategory(category);
 		}
 
-		/// <summary>
-		///     Adds a single category to each member of a list of games
-		/// </summary>
-		/// <param name="gameIDs">List of game IDs to add to</param>
-		/// <param name="c">Category to add</param>
-		public void AddGameCategory(int[] gameIDs, Category c)
+		public void AddGameCategory(int[] appIds, Category category)
 		{
-			for (int i = 0; i < gameIDs.Length; i++)
+			foreach (int appId in appIds)
 			{
-				AddGameCategory(gameIDs[i], c);
+				AddGameCategory(appId, category);
 			}
 		}
 
@@ -214,32 +167,16 @@ namespace Depressurizer
 			return false;
 		}
 
-		public void Clear()
+		public void ClearGameCategories(int appId, bool preserveFavorite)
 		{
-			Games.Clear();
-			Categories.Clear();
+			Games[appId].ClearCategories(!preserveFavorite);
 		}
 
-		/// <summary>
-		///     Clears all categories from a single game
-		/// </summary>
-		/// <param name="gameID">Game ID to clear categories from</param>
-		/// <param name="cats">If true, preserves the favorite category.</param>
-		public void ClearGameCategories(int gameID, bool preserveFavorite)
+		public void ClearGameCategories(int[] appIds, bool preserveFavorite)
 		{
-			Games[gameID].ClearCategories(!preserveFavorite);
-		}
-
-		/// <summary>
-		///     Clears all categories from a set of games
-		/// </summary>
-		/// <param name="gameID">List of game IDs to clear categories from</param>
-		/// <param name="cats">If true, preserves the favorite category.</param>
-		public void ClearGameCategories(int[] gameIDs, bool preserveFavorite)
-		{
-			foreach (int id in gameIDs)
+			foreach (int appId in appIds)
 			{
-				ClearGameCategories(id, preserveFavorite);
+				ClearGameCategories(appId, preserveFavorite);
 			}
 		}
 
@@ -399,9 +336,9 @@ namespace Depressurizer
 			}
 		}
 
-		public void ExportSteamShortcuts(long SteamId)
+		public void ExportSteamShortcuts(long steamId)
 		{
-			string filePath = string.Format(Constants.ShortCutsFilePath, Settings.Instance.SteamPath, Profile.ID64toDirName(SteamId));
+			string filePath = string.Format(Constants.ShortCutsFilePath, Settings.Instance.SteamPath, Profile.ID64toDirName(steamId));
 			Logger.Instance.Info(GlobalStrings.GameData_SavingSteamConfigFile, filePath);
 			FileStream fStream = null;
 			BinaryReader binReader = null;
@@ -444,7 +381,7 @@ namespace Depressurizer
 				}
 
 				StringDictionary launchIds = new StringDictionary();
-				LoadShortcutLaunchIds(SteamId, out launchIds);
+				LoadShortcutLaunchIds(steamId, out launchIds);
 
 				VDFNode appsNode = dataRoot.GetNodeAt(new[]
 				{
@@ -594,55 +531,37 @@ namespace Depressurizer
 			//return newCat;
 		}
 
-		/// <summary>
-		///     Gets the Filter with the given name. If the Filter does not exist, creates it.
-		/// </summary>
-		/// <param name="name">Name to get the Filter for</param>
-		/// <returns>A Filter with the given name. Null if any error is encountered.</returns>
 		public Filter GetFilter(string name)
 		{
-			// Filters must have a name
-			if (string.IsNullOrEmpty(name))
+			if (string.IsNullOrWhiteSpace(name))
 			{
 				return null;
 			}
 
-			// Look for a matching Filter in the list and return if found
-			foreach (Filter f in Filters)
+			foreach (Filter filter in Filters)
 			{
-				if (string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase))
+				if (filter.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
 				{
-					return f;
+					return filter;
 				}
 			}
 
-			// Create a new Filter and return it
 			Filter newFilter = new Filter(name);
 			Filters.Add(newFilter);
 
 			return newFilter;
 		}
 
-		/// <summary>
-		///     Add or Remove the hidden attribute of a single game
-		/// </summary>
-		/// <param name="gameID">Game ID to hide/unhide</param>
-		/// <param name="hide">Whether the game should be hidden.</param>
-		public void HideGames(int gameID, bool hide)
+		public void HideGames(int appId, bool hide)
 		{
-			Games[gameID].SetHidden(hide);
+			Games[appId].SetHidden(hide);
 		}
 
-		/// <summary>
-		///     Add or Remove the hidden attribute from a set of games
-		/// </summary>
-		/// <param name="gameIDs">List of game IDs to hide/unhide</param>
-		/// <param name="hide">Whether the games should be hidden.</param>
-		public void HideGames(int[] gameIDs, bool hide)
+		public void HideGames(int[] appIds, bool hide)
 		{
-			foreach (int id in gameIDs)
+			foreach (int appId in appIds)
 			{
-				HideGames(id, hide);
+				HideGames(appId, hide);
 			}
 		}
 
@@ -810,52 +729,6 @@ namespace Depressurizer
 		}
 
 		/// <summary>
-		///     Integrates list of games from an HTML page into the loaded game list.
-		/// </summary>
-		/// <param name="page">The full text of the page to load</param>
-		/// <param name="overWrite">If true, overwrite the names of games already in the list.</param>
-		/// <param name="ignore">A set of item IDs to ignore. Can be null.</param>
-		/// <param name="ignoreDlc">Ignore any items classified as DLC in the database.</param>
-		/// <param name="newItems">The number of new items actually added</param>
-		/// <returns>Returns the number of games successfully processed and not ignored.</returns>
-		public int IntegrateHtmlGameList(string page, bool overWrite, SortedSet<int> ignore, out int newItems)
-		{
-			newItems = 0;
-			int totalItems = 0;
-
-			Regex srch = new Regex("\"appid\":([0-9]+),\"name\":\"([^\"]+)\"");
-			MatchCollection matches = srch.Matches(page);
-			foreach (Match m in matches)
-			{
-				if (m.Groups.Count < 3)
-				{
-					continue;
-				}
-
-				string appIdString = m.Groups[1].Value;
-				string appName = m.Groups[2].Value;
-
-				if ((appName != null) && (appIdString != null) && int.TryParse(appIdString, out int appId))
-				{
-					appName = ProcessUnicode(appName);
-					GameInfo integratedGame = IntegrateGame(appId, appName, overWrite, ignore, GameListingSource.WebProfile, out bool isNew);
-					if (integratedGame != null)
-					{
-						totalItems++;
-						if (isNew)
-						{
-							newItems++;
-						}
-					}
-				}
-			}
-
-			Logger.Info(GlobalStrings.GameData_IntegratedHTMLDataIntoGameList, totalItems, newItems);
-
-			return totalItems;
-		}
-
-		/// <summary>
 		///     Integrates list of games from an XmlDocument into the loaded game list.
 		/// </summary>
 		/// <param name="doc">The XmlDocument containing the new game list</param>
@@ -867,47 +740,47 @@ namespace Depressurizer
 		public int IntegrateXmlGameList(XmlDocument doc, bool overWrite, SortedSet<int> ignore, out int newItems)
 		{
 			newItems = 0;
+			int loadedGames = 0;
+
 			if (doc == null)
 			{
-				return 0;
+				return loadedGames;
 			}
 
-			int loadedGames = 0;
 			XmlNodeList gameNodes = doc.SelectNodes("/gamesList/games/game");
-			foreach (XmlNode gameNode in gameNodes)
+			if (gameNodes != null)
 			{
-				XmlNode appIdNode = gameNode["appID"];
-				if ((appIdNode != null) && int.TryParse(appIdNode.InnerText, out int appId))
+				foreach (XmlNode gameNode in gameNodes)
 				{
-					XmlNode nameNode = gameNode["name"];
-					if (nameNode != null)
+					XmlNode appIdNode = gameNode["appID"];
+					if ((appIdNode == null) || !int.TryParse(appIdNode.InnerText, out int appId))
 					{
-						GameInfo integratedGame = IntegrateGame(appId, nameNode.InnerText, overWrite, ignore, GameListingSource.WebProfile, out bool isNew);
-						if (integratedGame != null)
-						{
-							loadedGames++;
-							if (isNew)
-							{
-								newItems++;
-							}
-						}
+						continue;
+					}
+
+					XmlNode nameNode = gameNode["name"];
+					if (nameNode == null)
+					{
+						continue;
+					}
+
+					GameInfo integratedGame = IntegrateGame(appId, nameNode.InnerText, overWrite, ignore, GameListingSource.WebProfile, out bool isNew);
+					if (integratedGame == null)
+					{
+						continue;
+					}
+
+					loadedGames++;
+					if (isNew)
+					{
+						newItems++;
 					}
 				}
 			}
 
-			Logger.Info(GlobalStrings.GameData_IntegratedXMLDataIntoGameList, loadedGames, newItems);
+			Logger.Info("GameList: Integrated XML data into game list. {0} total items, {1} new.", loadedGames, newItems);
 
 			return loadedGames;
-		}
-
-		/// <summary>
-		///     Searches a string for HTML unicode entities ('\u####') and replaces them with actual unicode characters.
-		/// </summary>
-		/// <param name="val">The string to process</param>
-		/// <returns>The processed string</returns>
-		public string ProcessUnicode(string val)
-		{
-			return RegexUnicode.Replace(val, m => ((char) int.Parse(m.Groups["Value"].Value, NumberStyles.HexNumber)).ToString());
 		}
 
 		/// <summary>
@@ -1190,6 +1063,43 @@ namespace Depressurizer
 		#endregion
 
 		#region Methods
+
+		private static XmlDocument FetchXmlFromUrl(string url)
+		{
+			Logger.Info("GameList: Starting download XML game list from URL '{0}'.", url);
+			XmlDocument document = new XmlDocument();
+
+			try
+			{
+				using (WebClient client = new WebClient())
+				{
+					client.Headers.Set("User-Agent", "Depressurizer");
+
+					string xml = client.DownloadString(url);
+					if (xml.Contains("This profile is private."))
+					{
+						throw new InvalidDataException("The specified profile is not public, please check your privacy settings.");
+					}
+
+					if (!xml.Contains("<games>") || !xml.Contains("</games>"))
+					{
+						throw new InvalidDataException("The specified profile does not have a public game list, please check your privacy settings.");
+					}
+
+					document.Load(xml);
+				}
+			}
+			catch (Exception e)
+			{
+				Logger.Error("GameList: Exception while downloading XML game list: {0}", e.Message);
+
+				throw new ApplicationException(e.Message, e);
+			}
+
+			Logger.Info("GameList: Downloaded XML game list from URL '{0}'.", url);
+
+			return document;
+		}
 
 		private int FindMatchingShortcut(int shortcutId, VDFNode shortcutNode, List<GameInfo> gamesToMatchAgainst, StringDictionary shortcutLaunchIds)
 		{
