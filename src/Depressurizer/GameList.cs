@@ -1086,7 +1086,7 @@ namespace Depressurizer
 						throw new InvalidDataException("The specified profile does not have a public game list, please check your privacy settings.");
 					}
 
-					document.Load(xml);
+					document.LoadXml(xml);
 				}
 			}
 			catch (Exception e)
