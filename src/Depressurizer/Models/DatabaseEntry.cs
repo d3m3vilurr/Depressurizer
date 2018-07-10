@@ -426,7 +426,9 @@ namespace Depressurizer.Models
 			catch (Exception e)
 			{
 				Logger.Warn("Scraping {0}: Page read failed. {1}", Id, e.Message);
-				LastStoreScrape = 0;
+
+				// Use 1 instead of 0 to NOT trigger the TSA scraping
+				LastStoreScrape = 1;
 
 				return;
 			}
