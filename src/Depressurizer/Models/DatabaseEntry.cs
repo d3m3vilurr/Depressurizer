@@ -21,7 +21,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -30,7 +29,6 @@ using Depressurizer.Core.Enums;
 using Depressurizer.Core.Helpers;
 using Depressurizer.Core.Interfaces;
 using Depressurizer.Core.Models;
-using Depressurizer.Properties;
 
 namespace Depressurizer.Models
 {
@@ -90,7 +88,6 @@ namespace Depressurizer.Models
 
 		#region Fields
 
-		[DefaultValue(AppType.Unknown)]
 		public AppType AppType = AppType.Unknown;
 
 		public List<string> Developers = new List<string>();
@@ -312,7 +309,7 @@ namespace Depressurizer.Models
 			{
 				string storeLanguage = Steam.GetStoreLanguage(Database.Language);
 
-				HttpWebRequest req = GetSteamRequest(string.Format(Constants.SteamStoreApp + "?l=" + storeLanguage, Id));
+				HttpWebRequest req = GetSteamRequest($"https://store.steampowered.com/app/{Id}/?l={storeLanguage}");
 				resp = (HttpWebResponse) req.GetResponse();
 
 				int count = 0;
